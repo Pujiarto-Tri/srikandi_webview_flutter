@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 // #docregion platform_imports
 // Import for Android features.
 // ignore: depend_on_referenced_packages
@@ -68,10 +70,22 @@ Page resource error:
   isForMainFrame: ${error.isForMainFrame}
           ''');
           },
-          onNavigationRequest: (NavigationRequest request) {
+          onNavigationRequest: (NavigationRequest request) async {
+            var url = request.url;
+            var index = url.indexOf("&path=template_naskah_dinas/");
+            if (index != -1) {
+              url = url.substring(0, index);
+            }
             if (request.url.startsWith('https://www.youtube.com/')) {
               debugPrint('blocking navigation to ${request.url}');
               return NavigationDecision.prevent;
+            } else {
+              var response = await http.get(Uri.parse(url));
+              if (response.headers['content-type'] == 'application/pdf' || response.headers['content-type'] == 'application/msword') {
+                var filePath = await File.fromUri(Uri.parse(url)).create();
+                await filePath.writeAsBytes(response.bodyBytes);
+                return NavigationDecision.prevent;
+              }
             }
             debugPrint('allowing navigation to ${request.url}');
             return NavigationDecision.navigate;
